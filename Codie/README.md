@@ -2,9 +2,21 @@
 
 A minimal Discord bot for one server, built with Node.js, discord.js, and dotenv.
 
+## Features
+
+- Rotates Codie's Discord presence every 60 seconds to a random Magic: The Gathering card.
+- Provides `/casting-what` so users can ask which card Codie is currently casting.
+- Scans normal chat messages for uppercase MTG set codes and replies with Scryfall set links.
+
 ## Commands
 
 - `/casting-what` replies with a Scryfall link to the card Codie is currently casting in his presence.
+
+Example reply:
+
+```markdown
+I'm currently casting [Lightning Bolt](https://scryfall.com/card/...).
+```
 
 ## MTG Set Detection
 
@@ -44,6 +56,8 @@ Random cards are fetched from:
 ```text
 https://api.scryfall.com/cards/random
 ```
+
+The bot stores the current random card in memory so `/casting-what` can reply with the same card shown in the presence.
 
 ## Setup
 
