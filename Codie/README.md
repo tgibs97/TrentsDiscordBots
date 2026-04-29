@@ -2,6 +2,10 @@
 
 A minimal Discord bot for one server, built with Node.js, discord.js, and dotenv.
 
+## Commands
+
+- `/casting-what` replies with a Scryfall link to the card Codie is currently casting in his presence.
+
 ## MTG Set Detection
 
 On startup, the bot fetches Magic: The Gathering set data from Scryfall:
@@ -26,6 +30,20 @@ Example bot reply:
 ```
 
 Lowercase and mixed-case set codes are ignored, so `lci` and `Lci` do not trigger.
+
+## Presence
+
+When the bot is online, it updates its Discord presence every 60 seconds with a random Scryfall card:
+
+```text
+Casting Lightning Bolt
+```
+
+Random cards are fetched from:
+
+```text
+https://api.scryfall.com/cards/random
+```
 
 ## Setup
 
@@ -56,9 +74,10 @@ Lowercase and mixed-case set codes are ignored, so `lci` and `Lci` do not trigge
    GUILD_ID=your_discord_server_guild_id_here
    ```
 
-5. In the Discord Developer Portal, enable the bot and invite it to your server with this scope:
+5. In the Discord Developer Portal, enable the bot and invite it to your server with these scopes:
 
    - `bot`
+   - `applications.commands`
 
 6. In the Discord Developer Portal, open your application, go to **Bot**, and enable **Message Content Intent** under **Privileged Gateway Intents**.
 
@@ -70,12 +89,13 @@ Start the bot:
 npm start
 ```
 
-On startup, the bot clears any previously registered guild slash commands from `GUILD_ID`, then logs in.
+On startup, the bot registers slash commands to the guild from `GUILD_ID`, then logs in.
 
 ## Notes
 
 - The Discord token is loaded from `process.env.DISCORD_TOKEN`.
-- Previously registered guild slash commands are cleared with `process.env.CLIENT_ID` and `process.env.GUILD_ID`.
+- Commands are registered with `process.env.CLIENT_ID` and `process.env.GUILD_ID`.
 - Normal message scanning uses `GatewayIntentBits.Guilds`, `GatewayIntentBits.GuildMessages`, and `GatewayIntentBits.MessageContent`.
 - MTG set data is fetched once at startup and cached in memory.
+- Presence is refreshed every 60 seconds with a random Scryfall card name.
 - No database or persistent storage is included.

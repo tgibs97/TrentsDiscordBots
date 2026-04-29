@@ -1,18 +1,31 @@
 require('dotenv').config();
 
 const {
+  ActivityType,
   Client,
   GatewayIntentBits,
   MessageFlags,
   REST,
   Routes,
+  SlashCommandBuilder,
 } = require('discord.js');
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
+const SCRYFALL_RANDOM_CARD_URL = 'https://api.scryfall.com/cards/random';
 const SCRYFALL_SETS_URL = 'https://api.scryfall.com/sets';
 const SET_CODE_REGEX = /(?<![A-Za-z0-9])[A-Z0-9]{2,8}(?![A-Za-z0-9])/g;
+const PRESENCE_REFRESH_INTERVAL_MS = 60_000;
+const DISCORD_ACTIVITY_TEXT_MAX_LENGTH = 128;
+const CASTING_WHAT_COMMAND_NAME = 'casting-what';
 
+let currentCastingCard = null;
 let setCodeLookup = new Map();
+
+const commands = [
+  new SlashCommandBuilder()
+    .setName(CASTING_WHAT_COMMAND_NAME)
+    .setDescription('Casting What? See what card Codie is currently casting.'),
+].map((command) => command.toJSON());
 
 function validateEnvironment() {
   const missing = [];
@@ -26,24 +39,104 @@ function validateEnvironment() {
   }
 }
 
-async function clearCommands() {
+async function registerCommands() {
   const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
 
-  console.log('Clearing guild slash commands...');
+  console.log('Registering guild slash commands...');
   await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), {
-    body: [],
+    body: commands,
   });
-  console.log('Guild slash commands cleared.');
+  console.log('Guild slash commands registered.');
 }
 
 function escapeMarkdownLinkText(text) {
   return text.replace(/[\\[\]]/g, '\\$&');
 }
 
-async function refreshSetList() {
+function ensureFetchAvailable() {
   if (typeof fetch !== 'function') {
     throw new Error('This Node.js version does not include built-in fetch. Use Node.js 18 or newer.');
   }
+}
+
+function formatCastingActivity(cardName) {
+  const activity = `Casting ${cardName}`;
+
+  if (activity.length <= DISCORD_ACTIVITY_TEXT_MAX_LENGTH) {
+    return activity;
+  }
+
+  return `${activity.slice(0, DISCORD_ACTIVITY_TEXT_MAX_LENGTH - 3)}...`;
+}
+
+async function fetchRandomCard() {
+  ensureFetchAvailable();
+
+  const response = await fetch(SCRYFALL_RANDOM_CARD_URL, {
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'codie-discord-bot/1.0',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Scryfall random card request failed with ${response.status} ${response.statusText}`);
+  }
+
+  const card = await response.json();
+
+  if (!card.name || !card.scryfall_uri) {
+    throw new Error('Scryfall random card response did not include a card name and Scryfall URI.');
+  }
+
+  return {
+    name: card.name,
+    scryfallUri: card.scryfall_uri,
+  };
+}
+
+async function updatePresence(client) {
+  const card = await fetchRandomCard();
+  const activity = formatCastingActivity(card.name);
+
+  currentCastingCard = card;
+
+  client.user.setPresence({
+    activities: [
+      {
+        name: activity,
+        type: ActivityType.Custom,
+      },
+    ],
+    status: 'online',
+  });
+
+  console.log(`Updated presence: ${activity}`);
+}
+
+function startPresenceUpdates(client) {
+  let isUpdating = false;
+
+  const refreshPresence = async () => {
+    if (isUpdating) return;
+
+    isUpdating = true;
+
+    try {
+      await updatePresence(client);
+    } catch (error) {
+      console.error('Failed to update Discord presence:', error);
+    } finally {
+      isUpdating = false;
+    }
+  };
+
+  refreshPresence();
+  setInterval(refreshPresence, PRESENCE_REFRESH_INTERVAL_MS);
+}
+
+async function refreshSetList() {
+  ensureFetchAvailable();
 
   const response = await fetch(SCRYFALL_SETS_URL, {
     headers: {
@@ -85,6 +178,17 @@ function findSetMatches(content) {
     .filter(Boolean);
 }
 
+async function handleCastingWhatCommand(interaction) {
+  if (!currentCastingCard) {
+    await interaction.reply("I'm still choosing a spell.");
+    return;
+  }
+
+  await interaction.reply(
+    `I'm currently casting [${escapeMarkdownLinkText(currentCastingCard.name)}](${currentCastingCard.scryfallUri}).`
+  );
+}
+
 async function startBot() {
   validateEnvironment();
 
@@ -96,9 +200,9 @@ async function startBot() {
   }
 
   try {
-    await clearCommands();
+    await registerCommands();
   } catch (error) {
-    console.error('Failed to clear slash commands:', error);
+    console.error('Failed to register slash commands:', error);
     process.exit(1);
   }
 
@@ -112,6 +216,30 @@ async function startBot() {
 
   client.once('ready', (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}`);
+    startPresenceUpdates(readyClient);
+  });
+
+  client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isChatInputCommand()) return;
+
+    try {
+      if (interaction.commandName === CASTING_WHAT_COMMAND_NAME) {
+        await handleCastingWhatCommand(interaction);
+      }
+    } catch (error) {
+      console.error(`Failed to handle /${interaction.commandName}:`, error);
+
+      const response = {
+        content: 'Something went wrong while handling that command.',
+        ephemeral: true,
+      };
+
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(response);
+      } else {
+        await interaction.reply(response);
+      }
+    }
   });
 
   client.on('messageCreate', async (message) => {
