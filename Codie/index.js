@@ -59,6 +59,10 @@ function escapeMarkdownLinkText(text) {
   return text.replace(/[\\[\]]/g, '\\$&');
 }
 
+function getLogTimestamp() {
+  return new Date().toISOString();
+}
+
 function ensureFetchAvailable() {
   if (typeof fetch !== 'function') {
     throw new Error('This Node.js version does not include built-in fetch. Use Node.js 18 or newer.');
@@ -120,7 +124,7 @@ async function updatePresence(client) {
     status: 'online',
   });
 
-  console.log(`Updated presence: ${activity}`);
+  console.log(`[${getLogTimestamp()}] Updated presence: ${activity}`);
 }
 
 function startPresenceUpdates(client) {
@@ -226,7 +230,7 @@ async function startBot() {
     ],
   });
 
-  client.once('ready', (readyClient) => {
+  client.once('clientReady', (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}`);
     startPresenceUpdates(readyClient);
   });
