@@ -13,14 +13,20 @@ const {
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 const SCRYFALL_RANDOM_CARD_URL = 'https://api.scryfall.com/cards/random';
 const SCRYFALL_SETS_URL = 'https://api.scryfall.com/sets';
+
+// Match standalone uppercase MTG set codes like LCI, DFT, or TDM in normal chat messages.
 const SET_CODE_REGEX = /(?<![A-Za-z0-9])[A-Z0-9]{2,8}(?![A-Za-z0-9])/g;
 const PRESENCE_REFRESH_INTERVAL_MS = 60_000;
 const DISCORD_ACTIVITY_TEXT_MAX_LENGTH = 128;
 const CASTING_WHAT_COMMAND_NAME = 'casting-what';
 
+// The current random card is shared by the Discord presence and /casting-what command.
 let currentCastingCard = null;
+
+// Scryfall set data is fetched once at startup and stored by uppercase set code.
 let setCodeLookup = new Map();
 
+// Guild command registration replaces the previous command list, removing stale commands.
 const commands = [
   new SlashCommandBuilder()
     .setName(CASTING_WHAT_COMMAND_NAME)
@@ -62,6 +68,7 @@ function ensureFetchAvailable() {
 function formatCastingActivity(cardName) {
   const activity = `Casting ${cardName}`;
 
+  // Discord activity text has length limits; trim unusual long names defensively.
   if (activity.length <= DISCORD_ACTIVITY_TEXT_MAX_LENGTH) {
     return activity;
   }
@@ -72,6 +79,7 @@ function formatCastingActivity(cardName) {
 async function fetchRandomCard() {
   ensureFetchAvailable();
 
+  // Scryfall asks API clients to identify themselves with a User-Agent.
   const response = await fetch(SCRYFALL_RANDOM_CARD_URL, {
     headers: {
       Accept: 'application/json',
@@ -99,6 +107,7 @@ async function updatePresence(client) {
   const card = await fetchRandomCard();
   const activity = formatCastingActivity(card.name);
 
+  // Store the full card so /casting-what can reply with the same card and link.
   currentCastingCard = card;
 
   client.user.setPresence({
@@ -118,6 +127,7 @@ function startPresenceUpdates(client) {
   let isUpdating = false;
 
   const refreshPresence = async () => {
+    // Avoid overlapping updates if Scryfall or Discord is slow.
     if (isUpdating) return;
 
     isUpdating = true;
@@ -138,6 +148,7 @@ function startPresenceUpdates(client) {
 async function refreshSetList() {
   ensureFetchAvailable();
 
+  // Load all MTG sets once so message matching does not need an API call per message.
   const response = await fetch(SCRYFALL_SETS_URL, {
     headers: {
       Accept: 'application/json',
@@ -171,6 +182,7 @@ async function refreshSetList() {
 }
 
 function findSetMatches(content) {
+  // Use a Set so repeated codes in one message only produce one link.
   const codes = new Set(content.match(SET_CODE_REGEX) ?? []);
 
   return [...codes]
@@ -220,6 +232,7 @@ async function startBot() {
   });
 
   client.on('interactionCreate', async (interaction) => {
+    // Ignore autocomplete, buttons, and other non-slash-command interactions.
     if (!interaction.isChatInputCommand()) return;
 
     try {
@@ -245,6 +258,7 @@ async function startBot() {
   client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
 
+    // Normal chat messages are scanned for set codes and answered with Scryfall set links.
     const matches = findSetMatches(message.content);
     if (matches.length === 0) return;
 
