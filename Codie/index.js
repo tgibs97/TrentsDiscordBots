@@ -6,7 +6,6 @@ const {
   MessageFlags,
   REST,
   Routes,
-  SlashCommandBuilder,
 } = require('discord.js');
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
@@ -14,15 +13,6 @@ const SCRYFALL_SETS_URL = 'https://api.scryfall.com/sets';
 const SET_CODE_REGEX = /(?<![A-Za-z0-9])[A-Z0-9]{2,8}(?![A-Za-z0-9])/g;
 
 let setCodeLookup = new Map();
-
-const commands = [
-  new SlashCommandBuilder()
-    .setName('ping')
-    .setDescription('Replies with Pong!'),
-  new SlashCommandBuilder()
-    .setName('codex')
-    .setDescription('Hear a dramatic quote from Codie, Vociferous Codex.'),
-].map((command) => command.toJSON());
 
 function validateEnvironment() {
   const missing = [];
@@ -36,14 +26,14 @@ function validateEnvironment() {
   }
 }
 
-async function registerCommands() {
+async function clearCommands() {
   const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
 
-  console.log('Registering guild slash commands...');
+  console.log('Clearing guild slash commands...');
   await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), {
-    body: commands,
+    body: [],
   });
-  console.log('Guild slash commands registered.');
+  console.log('Guild slash commands cleared.');
 }
 
 function escapeMarkdownLinkText(text) {
@@ -106,9 +96,9 @@ async function startBot() {
   }
 
   try {
-    await registerCommands();
+    await clearCommands();
   } catch (error) {
-    console.error('Failed to register slash commands:', error);
+    console.error('Failed to clear slash commands:', error);
     process.exit(1);
   }
 
@@ -122,36 +112,6 @@ async function startBot() {
 
   client.once('ready', (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}`);
-  });
-
-  client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isChatInputCommand()) return;
-
-    try {
-      if (interaction.commandName === 'ping') {
-        await interaction.reply('Pong!');
-        return;
-      }
-
-      if (interaction.commandName === 'codex') {
-        await interaction.reply(
-          '"Let the ink thunder and the pages burn with truth; I am Codie, Vociferous Codex, and no silence shall survive my turning."'
-        );
-      }
-    } catch (error) {
-      console.error(`Failed to handle /${interaction.commandName}:`, error);
-
-      const response = {
-        content: 'Something went wrong while handling that command.',
-        ephemeral: true,
-      };
-
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(response);
-      } else {
-        await interaction.reply(response);
-      }
-    }
   });
 
   client.on('messageCreate', async (message) => {

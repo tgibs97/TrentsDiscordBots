@@ -1,11 +1,6 @@
 # codie-discord-bot
 
-A minimal Discord slash-command bot for one server, built with Node.js, discord.js, and dotenv.
-
-## Commands
-
-- `/ping` replies `Pong!`
-- `/codex` replies with a dramatic fantasy-book style quote from Codie, Vociferous Codex
+A minimal Discord bot for one server, built with Node.js, discord.js, and dotenv.
 
 ## MTG Set Detection
 
@@ -61,10 +56,9 @@ Lowercase and mixed-case set codes are ignored, so `lci` and `Lci` do not trigge
    GUILD_ID=your_discord_server_guild_id_here
    ```
 
-5. In the Discord Developer Portal, enable the bot and invite it to your server with these scopes:
+5. In the Discord Developer Portal, enable the bot and invite it to your server with this scope:
 
    - `bot`
-   - `applications.commands`
 
 6. In the Discord Developer Portal, open your application, go to **Bot**, and enable **Message Content Intent** under **Privileged Gateway Intents**.
 
@@ -76,12 +70,12 @@ Start the bot:
 npm start
 ```
 
-On startup, the bot registers slash commands to the guild from `GUILD_ID` for fast testing, then logs in. After it prints that it is logged in, use `/ping` or `/codex` in your Discord server.
+On startup, the bot clears any previously registered guild slash commands from `GUILD_ID`, then logs in.
 
 ## Notes
 
 - The Discord token is loaded from `process.env.DISCORD_TOKEN`.
-- Commands are registered with `process.env.CLIENT_ID` and `process.env.GUILD_ID`.
+- Previously registered guild slash commands are cleared with `process.env.CLIENT_ID` and `process.env.GUILD_ID`.
 - Normal message scanning uses `GatewayIntentBits.Guilds`, `GatewayIntentBits.GuildMessages`, and `GatewayIntentBits.MessageContent`.
 - MTG set data is fetched once at startup and cached in memory.
 - No database or persistent storage is included.

@@ -1,7 +1,7 @@
 {
   "name": "codie-discord-bot",
   "version": "1.0.0",
-  "description": "A minimal Discord slash-command bot for a single server.",
+  "description": "A minimal Discord bot for a single server.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -9,7 +9,7 @@
   "keywords": [
     "discord",
     "bot",
-    "slash-commands"
+    "mtg"
   ],
   "author": "",
   "license": "MIT",
