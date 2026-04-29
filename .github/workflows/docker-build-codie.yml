@@ -1,9 +1,13 @@
-name: Build Bot Image
+name: Build Codie Bot Image
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
+    paths:
+      - "Codie/**"
+      - ".github/workflows/docker-build-codie.yml"
 
 permissions:
   contents: read
@@ -24,9 +28,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push image
+      - name: Build and push Codie image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ./Codie
+          file: ./Codie/Dockerfile
           push: true
           tags: ghcr.io/tgibs97/codie-discord-bot:latest
